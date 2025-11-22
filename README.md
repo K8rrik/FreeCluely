@@ -28,6 +28,14 @@ This script will automatically download necessary dependencies and create the re
 ### 4. Run
 After a successful build, `FreeCluely.app` will appear in the `Build` folder. Launch it.
 
+## Hotkeys
+
+- **Cmd + Shift + A**: Analyze screen content and get AI assistance.
+- **Cmd + Shift + W**: Toggle application visibility.
+- **Cmd + Shift + C**: Clear current session and start new.
+- **Cmd + Shift + H**: Toggle history view.
+- **Cmd + Arrow Keys**: Move the application window.
+
 ## Troubleshooting
 - **Access Denied**: The application requires screen recording permissions to analyze content.
   Go to **System Settings > Privacy & Security > Screen Recording** and allow access for FreeCluely.
