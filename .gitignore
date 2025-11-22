@@ -1,0 +1,20 @@
+# macOS
+.DS_Store
+
+# Build & Temporary
+Build/
+.build/
+DerivedData/
+
+# Configuration & Secrets
+.env
+.agent/
+
+# Xcode
+.swiftpm/
+*.xcodeproj
+*.xcworkspace
+xcuserdata/
+
+# Editors
+.vscode/
