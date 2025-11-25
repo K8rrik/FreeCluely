@@ -8,20 +8,15 @@ class ScreenCapture {
     private init() {}
     
     func captureAndAnalyze(appState: AppState) async {
+        // Prevent multiple simultaneous requests
+        if await MainActor.run(body: { appState.isLoading }) {
+            return
+        }
+
         await MainActor.run {
-            // Start a new session for a fresh capture
-            appState.startNewSession()
+            // Do NOT start a new session, append to existing one
+            // appState.startNewSession() 
             appState.isLoading = true
-            // Add placeholder for "Analyzing..." state or just wait for stream?
-            // Let's add a system/user message indicating capture?
-            // Or just let the first AI message be the analysis.
-            // Let's add a "Screenshot captured" user message for context in UI?
-            // Actually, the user didn't type anything. Let's just have the AI response.
-            // But we need a placeholder to show loading state if we want to be fancy,
-            // or just rely on appState.isLoading overlay.
-            
-            // Let's add an AI message placeholder immediately so the UI shows something appearing.
-            // Removed to allow loading indicator to show
         }
         
         guard let image = captureScreen() else {
@@ -36,7 +31,14 @@ class ScreenCapture {
         
         await MainActor.run {
             appState.lastCapturedImage = image
-            let userMessage = ChatMessage(role: .user, text: "Скриншот отправлен. Проанализируй его.")
+            
+            var imageData: Data? = nil
+            if let resized = image.resize(maxDimension: 1024),
+               let data = resized.jpegData(compressionQuality: 0.7) {
+                imageData = data
+            }
+            
+            let userMessage = ChatMessage(role: .user, text: "Скриншот отправлен. Проанализируй его.", imageData: imageData)
             appState.currentSession.messages.append(userMessage)
         }
         
@@ -47,31 +49,74 @@ class ScreenCapture {
         // Prepare ID for the incoming AI message
         let aiMessageId = UUID()
         
-        do {
-            // Use history
-            let stream = GeminiClient.shared.streamRequest(history: history, image: image, apiKey: apiKey, modelName: model)
-            
-            for try await text in stream {
-                await MainActor.run {
-                    if let index = appState.currentSession.messages.firstIndex(where: { $0.id == aiMessageId }) {
-                        appState.currentSession.messages[index].text += text
-                    } else {
-                        let aiMessage = ChatMessage(id: aiMessageId, role: .ai, text: text)
-                        appState.currentSession.messages.append(aiMessage)
+        let task = Task {
+            do {
+                // Use history
+                let stream = GeminiClient.shared.streamRequest(
+                    history: history,
+                    image: nil, // Image is now in history
+                    apiKey: apiKey,
+                    model: model,
+                    generationConfig: GenerationConfig(
+                        temperature: nil,
+                        topP: nil,
+                        topK: nil,
+                        maxOutputTokens: 65536,
+                        candidateCount: 1,
+                        thinkingConfig: ThinkingConfig(includeThoughts: true, thinkingLevel: "high")
+                    ),
+                    safetySettings: [
+                        SafetySetting(category: .harassment, threshold: .blockNone),
+                        SafetySetting(category: .hateSpeech, threshold: .blockNone),
+                        SafetySetting(category: .sexuallyExplicit, threshold: .blockNone),
+                        SafetySetting(category: .dangerousContent, threshold: .blockNone)
+                    ],
+                    tools: [
+                        Tool(googleSearch: true)
+                    ]
+                )
+                
+                for try await update in stream {
+                    await MainActor.run {
+                        if let index = appState.currentSession.messages.firstIndex(where: { $0.id == aiMessageId }) {
+                            if let text = update.text {
+                                appState.currentSession.messages[index].text += text
+                            }
+                            if let thought = update.thought {
+                                if appState.currentSession.messages[index].thought == nil {
+                                    appState.currentSession.messages[index].thought = ""
+                                }
+                                appState.currentSession.messages[index].thought! += thought
+                            }
+                        } else {
+                            let aiMessage = ChatMessage(
+                                id: aiMessageId,
+                                role: .ai,
+                                text: update.text ?? "",
+                                thought: update.thought
+                            )
+                            appState.currentSession.messages.append(aiMessage)
+                        }
                     }
                 }
-            }
-            
-            await MainActor.run {
-                appState.isLoading = false
-                appState.saveCurrentSession()
-            }
-        } catch {
-            await MainActor.run {
-                appState.isLoading = false
-                appState.appendErrorMessage(error, for: aiMessageId)
+                
+                await MainActor.run {
+                    appState.isLoading = false
+                    appState.saveCurrentSession()
+                }
+            } catch {
+                if error is CancellationError {
+                    return
+                }
+                await MainActor.run {
+                    appState.isLoading = false
+                    appState.appendErrorMessage(error, for: aiMessageId)
+                }
             }
         }
+        
+        await appState.setCurrentTask(task)
+        await task.value
     }
     
     private func captureScreen() -> CGImage? {

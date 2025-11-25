@@ -2,6 +2,95 @@ import Foundation
 import AppKit
 import VideoToolbox
 
+// MARK: - Configuration Models
+
+enum GeminiModel: String, CaseIterable {
+    case gemini3ProPreview = "gemini-3-pro-preview"
+    case gemini15Pro = "gemini-1.5-pro"
+    case gemini15Flash = "gemini-1.5-flash"
+    case geminiPro = "gemini-pro"
+    
+    var id: String { self.rawValue }
+}
+
+struct GenerationConfig: Encodable {
+    var temperature: Float?
+    var topP: Float?
+    var topK: Int?
+    var maxOutputTokens: Int?
+    var stopSequences: [String]?
+    var candidateCount: Int?
+    var thinkingConfig: ThinkingConfig?
+    
+    init(temperature: Float? = nil, topP: Float? = nil, topK: Int? = nil, maxOutputTokens: Int? = nil, stopSequences: [String]? = nil, candidateCount: Int? = nil, thinkingConfig: ThinkingConfig? = nil) {
+        self.temperature = temperature
+        self.topP = topP
+        self.topK = topK
+        self.maxOutputTokens = maxOutputTokens
+        self.stopSequences = stopSequences
+        self.candidateCount = candidateCount
+        self.thinkingConfig = thinkingConfig
+    }
+}
+
+struct ThinkingConfig: Encodable {
+    var includeThoughts: Bool?
+    var thinkingLevel: String? // "low", "high"
+    
+    init(includeThoughts: Bool? = nil, thinkingLevel: String? = nil) {
+        self.includeThoughts = includeThoughts
+        self.thinkingLevel = thinkingLevel
+    }
+}
+
+struct Tool: Encodable {
+    var googleSearch: GoogleSearch?
+    
+    struct GoogleSearch: Encodable {}
+    
+    init(googleSearch: Bool = false) {
+        if googleSearch {
+            self.googleSearch = GoogleSearch()
+        }
+    }
+}
+
+enum SafetyCategory: String, Encodable {
+    case harassment = "HARM_CATEGORY_HARASSMENT"
+    case hateSpeech = "HARM_CATEGORY_HATE_SPEECH"
+    case sexuallyExplicit = "HARM_CATEGORY_SEXUALLY_EXPLICIT"
+    case dangerousContent = "HARM_CATEGORY_DANGEROUS_CONTENT"
+}
+
+enum SafetyThreshold: String, Encodable {
+    case blockNone = "BLOCK_NONE"
+    case blockLowAndAbove = "BLOCK_LOW_AND_ABOVE"
+    case blockMediumAndAbove = "BLOCK_MEDIUM_AND_ABOVE"
+    case blockOnlyHigh = "BLOCK_ONLY_HIGH"
+    case blockUnspecified = "HARM_BLOCK_THRESHOLD_UNSPECIFIED"
+}
+
+struct SafetySetting: Encodable {
+    let category: SafetyCategory
+    let threshold: SafetyThreshold
+}
+
+struct GeminiError: Error, Decodable, LocalizedError {
+    let error: ErrorDetail
+    
+    struct ErrorDetail: Decodable {
+        let code: Int
+        let message: String
+        let status: String
+    }
+    
+    var errorDescription: String? {
+        return "Gemini API Error (\(error.code)): \(error.message)"
+    }
+}
+
+// MARK: - Client
+
 class GeminiClient {
     static let shared = GeminiClient()
     
@@ -9,30 +98,95 @@ class GeminiClient {
     
     private init() {
         let config = URLSessionConfiguration.default
-        config.timeoutIntervalForRequest = 180 // Increase timeout to 180 seconds
+        config.timeoutIntervalForRequest = 360 // Increase timeout to 360 seconds (6 minutes)
         config.timeoutIntervalForResource = 300
         self.session = URLSession(configuration: config)
     }
     
-    func streamRequest(history: [ChatMessage], image: CGImage? = nil, apiKey: String, modelName: String) -> AsyncThrowingStream<String, Error> {
+    /// Streams the response from Gemini API
+    /// - Parameters:
+    ///   - history: Chat history
+    ///   - image: Optional image for multimodal requests
+    ///   - apiKey: The API Key
+    ///   - model: The model to use (enum)
+    ///   - systemInstruction: Optional system instruction to override default
+    ///   - generationConfig: Optional generation parameters
+    ///   - safetySettings: Optional safety settings
+    ///   - tools: Optional tools (e.g. Google Search)
+    func streamRequest(
+        history: [ChatMessage],
+        image: CGImage? = nil,
+        apiKey: String,
+        model: GeminiModel,
+        systemInstruction: String? = nil,
+        generationConfig: GenerationConfig? = nil,
+        safetySettings: [SafetySetting]? = nil,
+        tools: [Tool]? = nil
+    ) -> AsyncThrowingStream<StreamUpdate, Error> {
         return AsyncThrowingStream { continuation in
             Task {
                 do {
-                    // Use v1beta by default
-                    try await self.performStreamRequest(history: history, image: image, apiKey: apiKey, modelName: modelName, apiVersion: "v1beta", continuation: continuation)
+                    try await self.performStreamRequest(
+                        history: history,
+                        image: image,
+                        apiKey: apiKey,
+                        modelName: model.rawValue,
+                        apiVersion: "v1beta",
+                        systemInstruction: systemInstruction,
+                        generationConfig: generationConfig,
+                        safetySettings: safetySettings,
+                        tools: tools,
+                        continuation: continuation
+                    )
                 } catch {
-                    print("Error with model \(modelName): \(error)")
+                    print("Error with model \(model.rawValue): \(error)")
                     continuation.finish(throwing: error)
                 }
             }
         }
     }
     
-    private func performStreamRequest(history: [ChatMessage], image: CGImage?, apiKey: String, modelName: String, apiVersion: String, continuation: AsyncThrowingStream<String, Error>.Continuation) async throws {
+    // Legacy support if needed, but prefer using the enum version
+    // Updated to accept String model name but map it if possible, or just pass through
+    func streamRequest(history: [ChatMessage], image: CGImage? = nil, apiKey: String, modelName: String) -> AsyncThrowingStream<StreamUpdate, Error> {
+        return AsyncThrowingStream { continuation in
+            Task {
+                do {
+                    try await self.performStreamRequest(
+                        history: history,
+                        image: image,
+                        apiKey: apiKey,
+                        modelName: modelName,
+                        apiVersion: "v1beta",
+                        systemInstruction: nil,
+                        generationConfig: nil,
+                        safetySettings: nil,
+                        tools: nil,
+                        continuation: continuation
+                    )
+                } catch {
+                    continuation.finish(throwing: error)
+                }
+            }
+        }
+    }
+    
+    private func performStreamRequest(
+        history: [ChatMessage],
+        image: CGImage?,
+        apiKey: String,
+        modelName: String,
+        apiVersion: String,
+        systemInstruction: String?,
+        generationConfig: GenerationConfig?,
+        safetySettings: [SafetySetting]?,
+        tools: [Tool]?,
+        continuation: AsyncThrowingStream<StreamUpdate, Error>.Continuation
+    ) async throws {
         print("Debug: Checking API Key...")
         if apiKey.isEmpty {
             print("Debug: API Key is empty!")
-            continuation.yield("Please set your Gemini API Key.")
+            continuation.yield(StreamUpdate(text: "Please set your Gemini API Key.", thought: nil))
             continuation.finish()
             return
         }
@@ -56,11 +210,20 @@ class GeminiClient {
             // Add text
             parts.append(["text": message.text])
             
-            // If this is the LAST user message and we have an image, attach it here
-            // This ensures the model sees the image in the current context
-            if message.role == .user && image != nil && index == history.lastIndex(where: { $0.role == .user }) {
+            // Check for image data in the message
+            if let imageData = message.imageData {
+                let base64Image = imageData.base64EncodedString()
+                parts.append([
+                    "inline_data": [
+                        "mime_type": "image/jpeg",
+                        "data": base64Image
+                    ]
+                ])
+            }
+            // Fallback: If this is the LAST user message and we have an image argument (legacy/direct call), attach it here
+            else if message.role == .user && image != nil && index == history.lastIndex(where: { $0.role == .user }) {
                  // Resize image to max 1024px
-                if let resizedImage = resize(image: image!, maxDimension: 1024),
+                if let resizedImage = image?.resize(maxDimension: 1024),
                    let imageData = resizedImage.jpegData(compressionQuality: 0.7) {
                     let base64Image = imageData.base64EncodedString()
                     parts.append([
@@ -79,13 +242,13 @@ class GeminiClient {
             ])
         }
         
-        // If history is empty but we have an image (edge case), create a user message
+        // Edge case: Empty history but image present
         if contents.isEmpty && image != nil {
              var parts: [[String: Any]] = []
              let defaultPrompt = "ВСЕГДА отвечай на русском языке. Проанализируй этот экран и предоставь помощь. Используй Markdown."
              parts.append(["text": defaultPrompt])
              
-             if let resizedImage = resize(image: image!, maxDimension: 1024),
+             if let resizedImage = image?.resize(maxDimension: 1024),
                 let imageData = resizedImage.jpegData(compressionQuality: 0.7) {
                  let base64Image = imageData.base64EncodedString()
                  parts.append([
@@ -101,14 +264,66 @@ class GeminiClient {
              ])
         }
         
-        let jsonBody: [String: Any] = [
+        let defaultSystemPrompt = "ВСЕГДА отвечай на русском языке. Используй Markdown. Структурируй ответ заголовками. Оформи вывод кода с использованием Markdown Code Blocks. Обязательно указывай тег языка программирования (syntax highlighting tag) для каждого блока кода. Не пиши комментарии и текст в блоках и между блоками кодов. Не используй LaTeX. Пиши формулы обычным текстом. Используй жирный шрифт для выделения. Краткое объяснение, затем решение."
+        
+        let finalSystemInstruction = systemInstruction ?? defaultSystemPrompt
+        
+        var jsonBody: [String: Any] = [
             "contents": contents,
             "systemInstruction": [
                 "parts": [
-                    ["text": "ВСЕГДА отвечай на русском языке. Используй Markdown. Структурируй ответ заголовками. Оформи вывод кода с использованием Markdown Code Blocks. Обязательно указывай тег языка программирования (syntax highlighting tag) для каждого блока кода. Не пиши комментарии и текст в блоках и между блоками кодов. Не используй LaTeX. Пиши формулы обычным текстом. Используй жирный шрифт для выделения. Краткое объяснение, затем решение."]
+                    ["text": finalSystemInstruction]
                 ]
             ]
         ]
+        
+        if let config = generationConfig {
+            var configDict: [String: Any] = [:]
+            if let temp = config.temperature { configDict["temperature"] = temp }
+            if let topP = config.topP { configDict["topP"] = topP }
+            if let topK = config.topK { configDict["topK"] = topK }
+            if let maxTokens = config.maxOutputTokens { configDict["maxOutputTokens"] = maxTokens }
+            if let stops = config.stopSequences { configDict["stopSequences"] = stops }
+            if let count = config.candidateCount { configDict["candidateCount"] = count }
+            
+            if let thinking = config.thinkingConfig {
+                var thinkingDict: [String: Any] = [:]
+                if let include = thinking.includeThoughts { thinkingDict["includeThoughts"] = include }
+                if let level = thinking.thinkingLevel { thinkingDict["thinkingLevel"] = level }
+                if !thinkingDict.isEmpty {
+                    configDict["thinkingConfig"] = thinkingDict
+                }
+            }
+            
+            if !configDict.isEmpty {
+                jsonBody["generationConfig"] = configDict
+            }
+        }
+        
+        if let safety = safetySettings {
+            let safetyDicts = safety.map { setting -> [String: String] in
+                return [
+                    "category": setting.category.rawValue,
+                    "threshold": setting.threshold.rawValue
+                ]
+            }
+            if !safetyDicts.isEmpty {
+                jsonBody["safetySettings"] = safetyDicts
+            }
+        }
+        
+        if let toolsList = tools {
+            let toolsDicts = toolsList.map { tool -> [String: Any] in
+                var dict: [String: Any] = [:]
+                if tool.googleSearch != nil {
+                    dict["googleSearch"] = [:] as [String: Any]
+                }
+                return dict
+            }
+            if !toolsDicts.isEmpty {
+                jsonBody["tools"] = toolsDicts
+            }
+        }
         
         let jsonData = try JSONSerialization.data(withJSONObject: jsonBody)
         request.httpBody = jsonData
@@ -125,6 +340,14 @@ class GeminiClient {
                 errorText += line + "\n"
             }
             print("API Error Body: \(errorText)")
+            
+            // Try to decode GeminiError
+            if let data = errorText.data(using: .utf8),
+               let geminiError = try? JSONDecoder().decode(GeminiError.self, from: data) {
+                throw geminiError
+            }
+            
+            // Fallback
             let errorMessage = "API Error (\(httpResponse.statusCode)): \(errorText.trimmingCharacters(in: .whitespacesAndNewlines))"
             let userInfo = [NSLocalizedDescriptionKey: errorMessage]
             throw NSError(domain: "GeminiClient", code: httpResponse.statusCode, userInfo: userInfo)
@@ -137,14 +360,23 @@ class GeminiClient {
                 
                 if let data = jsonString.data(using: .utf8),
                    let response = try? JSONDecoder().decode(StreamResponse.self, from: data) {
-                    if let text = response.candidates?.first?.content?.parts?.first?.text {
-                        continuation.yield(text)
+                    if let part = response.candidates?.first?.content?.parts?.first {
+                        if let isThought = part.thought, isThought {
+                            continuation.yield(StreamUpdate(text: nil, thought: part.text))
+                        } else {
+                            continuation.yield(StreamUpdate(text: part.text, thought: nil))
+                        }
                     }
                 }
             }
         }
         
         continuation.finish()
+    }
+
+    struct StreamUpdate {
+        let text: String?
+        let thought: String?
     }
 
     // Helper structs for decoding streaming response
@@ -162,42 +394,16 @@ class GeminiClient {
 
     struct Part: Decodable {
         let text: String?
-    }
-
-    func sendRequest(image: CGImage, apiKey: String, modelName: String) async throws -> String {
-        // Keep the original method for fallback or non-streaming use if needed
-        // ... (original implementation logic could be here, but we are replacing the block)
-        // For now, let's just call the stream and collect it if we really needed the old signature,
-        // but the plan is to replace usage.
-        // However, to keep the file clean, I will leave the original method logic as it was in the file,
-        // but I am replacing the block in the tool call.
-        // Wait, the tool call replaces a block. I should probably keep sendRequest as is and ADD streamRequest.
-        // But the tool `replace_file_content` replaces a specific block.
-        // Let me re-read the file content to make sure I don't delete sendRequest if I don't intend to.
-        // The `sendRequest` method spans lines 17-87.
-        // I will REPLACE `sendRequest` with BOTH `streamRequest` AND `sendRequest` (or just add `streamRequest` before it?).
-        // Actually, I can just add `streamRequest` and keep `sendRequest` if I want.
-        // But the user wants the "typewriter effect", so I will primarily use `streamRequest`.
-        // I will add `streamRequest` BEFORE `sendRequest` or AFTER it.
-        // Let's add it AFTER `sendRequest` to minimize disruption, or replace `sendRequest` if I want to force streaming.
-        // The plan said "Add a new method".
-        // So I will use `replace_file_content` to insert it.
-        // I'll insert it before `private func resize`.
-        
-        // Wait, I selected lines 17-87 to replace. That would delete `sendRequest`.
-        // I should probably just INSERT the new function.
-        // I will change my strategy to INSERT the new function before `private func resize`.
-        // `resize` starts at line 89.
-        // So I will target line 88 (which is empty) to insert.
-        
-        // RE-PLANNING THE TOOL CALL:
-        // I will use `replace_file_content` on line 88 to insert the code.
-        return "" // Dummy return to satisfy the thought process, actual tool call below.
+        let thought: Bool?
     }
     
-    private func resize(image: CGImage, maxDimension: CGFloat) -> CGImage? {
-        let width = CGFloat(image.width)
-        let height = CGFloat(image.height)
+    // resize method moved to CGImage extension
+}
+
+extension CGImage {
+    func resize(maxDimension: CGFloat) -> CGImage? {
+        let width = CGFloat(self.width)
+        let height = CGFloat(self.height)
         
         let aspectRatio = width / height
         var newWidth: CGFloat
@@ -223,7 +429,7 @@ class GeminiClient {
         )
         
         context?.interpolationQuality = .high
-        context?.draw(image, in: CGRect(x: 0, y: 0, width: newWidth, height: newHeight))
+        context?.draw(self, in: CGRect(x: 0, y: 0, width: newWidth, height: newHeight))
         
         return context?.makeImage()
     }

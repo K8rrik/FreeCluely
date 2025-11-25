@@ -9,13 +9,17 @@ struct ChatMessage: Identifiable, Codable, Equatable {
     let id: UUID
     let role: MessageRole
     var text: String
+    var thought: String?
     let timestamp: Date
+    var imageData: Data?
     
-    init(id: UUID = UUID(), role: MessageRole, text: String, timestamp: Date = Date()) {
+    init(id: UUID = UUID(), role: MessageRole, text: String, thought: String? = nil, timestamp: Date = Date(), imageData: Data? = nil) {
         self.id = id
         self.role = role
         self.text = text
+        self.thought = thought
         self.timestamp = timestamp
+        self.imageData = imageData
     }
 }
 

@@ -168,13 +168,14 @@ struct OverlayView: View {
     
     var inputView: some View {
         HStack {
-            TextField("Анализ экрана (⌘⇧A) или Спросите что-нибудь...", text: $appState.inputText)
+            TextField(appState.isLoading ? "Подождите, идет генерация..." : "Анализ экрана (⌘⇧A) или Спросите что-нибудь...", text: $appState.inputText)
                 .textFieldStyle(PlainTextFieldStyle())
                 .font(.system(size: 14))
                 .foregroundColor(.white)
                 .padding(12)
-                .background(Color.white.opacity(0.1))
+                .background(Color.white.opacity(appState.isLoading ? 0.05 : 0.1))
                 .cornerRadius(8)
+                .disabled(appState.isLoading)
                 .onSubmit {
                     appState.sendChatMessage()
                 }

@@ -6,7 +6,7 @@ class AppState: ObservableObject {
     @Published var responseText: String = "" // Kept for compatibility if needed, but we should move to messages
     @Published var isLoading: Bool = false
     @Published var apiKey: String = ""
-    @Published var model: String = "gemini-1.5-pro"
+    @Published var model: GeminiModel = .gemini3ProPreview
     @Published var isInspectable: Bool = false
     @Published var isVisible: Bool = true
     @Published var isOptionPressed: Bool = false
@@ -19,6 +19,8 @@ class AppState: ObservableObject {
     @Published var inputText: String = ""
     @Published var currentSession: ChatSession = ChatSession()
     
+    private var currentTask: Task<Void, Never>?
+    
     init() {
         let env = ConfigLoader.loadEnv()
         if let key = env["GEMINI_API_KEY"] {
@@ -27,19 +29,38 @@ class AppState: ObservableObject {
         } else {
             print("AppState: No API Key found in .env")
         }
-        if let modelEnv = env["GEMINI_MODEL"] {
-            self.model = modelEnv
+        if let modelEnv = env["GEMINI_MODEL"], let loadedModel = GeminiModel(rawValue: modelEnv) {
+            self.model = loadedModel
             print("AppState: Loaded Model from .env: \(modelEnv)")
         } else {
-            print("AppState: Using default model: \(self.model)")
+            print("AppState: Using default model: \(self.model.rawValue)")
         }
         
         self.history = HistoryManager.shared.loadHistory()
     }
     
     func startNewSession() {
+        currentTask?.cancel()
+        currentTask = nil
+        
+        // Save the partial session before clearing
+        saveCurrentSession()
+        
         self.currentSession = ChatSession()
+        self.lastCapturedImage = nil
+        self.isLoading = false // Reset loading state for new chat
         // Don't add to history yet, wait for content
+    }
+    
+    func cancelCurrentTask() {
+        currentTask?.cancel()
+        currentTask = nil
+        self.isLoading = false
+    }
+    
+    func setCurrentTask(_ task: Task<Void, Never>) {
+        currentTask?.cancel()
+        currentTask = task
     }
     
     func saveCurrentSession() {
@@ -61,7 +82,9 @@ class AppState: ObservableObject {
     func appendErrorMessage(_ error: Error, for messageId: UUID) {
         let errorMessage: String
         
-        if let urlError = error as? URLError {
+        if let geminiError = error as? GeminiError {
+            errorMessage = "⚠️ Ошибка API (\(geminiError.error.code)): \(geminiError.error.message)"
+        } else if let urlError = error as? URLError {
             switch urlError.code {
             case .notConnectedToInternet:
                 errorMessage = "⚠️ Нет подключения к интернету. Проверьте соединение."
@@ -91,13 +114,25 @@ class AppState: ObservableObject {
         inputText = "" // Clear input immediately
         
         // Add user message
-        let userMessage = ChatMessage(role: .user, text: messageText)
+        var imageData: Data? = nil
+        if let image = lastCapturedImage {
+            // Resize and convert to data for storage
+            if let resized = image.resize(maxDimension: 1024),
+               let data = resized.jpegData(compressionQuality: 0.7) {
+                imageData = data
+            }
+            lastCapturedImage = nil // Clear after using
+        }
+        
+        let userMessage = ChatMessage(role: .user, text: messageText, imageData: imageData)
         currentSession.messages.append(userMessage)
         
         // Prepare ID for the incoming AI message
         let aiMessageId = UUID()
         
-        Task {
+
+        
+        let task = Task {
             await MainActor.run {
                 self.isLoading = true
             }
@@ -105,17 +140,47 @@ class AppState: ObservableObject {
             do {
                 let stream = GeminiClient.shared.streamRequest(
                     history: self.currentSession.messages,
-                    image: lastCapturedImage,
+                    image: nil, // Image is now in history
                     apiKey: apiKey,
-                    modelName: model
+                    model: model,
+                    generationConfig: GenerationConfig(
+                        temperature: nil,
+                        topP: nil,
+                        topK: nil,
+                        maxOutputTokens: 65536,
+                        candidateCount: 1,
+                        thinkingConfig: ThinkingConfig(includeThoughts: true, thinkingLevel: "high")
+                    ),
+                    safetySettings: [
+                        SafetySetting(category: .harassment, threshold: .blockNone),
+                        SafetySetting(category: .hateSpeech, threshold: .blockNone),
+                        SafetySetting(category: .sexuallyExplicit, threshold: .blockNone),
+                        SafetySetting(category: .dangerousContent, threshold: .blockNone)
+                    ],
+                    tools: [
+                        Tool(googleSearch: true)
+                    ]
                 )
                 
-                for try await text in stream {
+                for try await update in stream {
                     await MainActor.run {
                         if let index = self.currentSession.messages.firstIndex(where: { $0.id == aiMessageId }) {
-                            self.currentSession.messages[index].text += text
+                            if let text = update.text {
+                                self.currentSession.messages[index].text += text
+                            }
+                            if let thought = update.thought {
+                                if self.currentSession.messages[index].thought == nil {
+                                    self.currentSession.messages[index].thought = ""
+                                }
+                                self.currentSession.messages[index].thought! += thought
+                            }
                         } else {
-                            let aiMessage = ChatMessage(id: aiMessageId, role: .ai, text: text)
+                            let aiMessage = ChatMessage(
+                                id: aiMessageId,
+                                role: .ai,
+                                text: update.text ?? "",
+                                thought: update.thought
+                            )
                             self.currentSession.messages.append(aiMessage)
                         }
                     }
@@ -126,11 +191,17 @@ class AppState: ObservableObject {
                     self.saveCurrentSession()
                 }
             } catch {
+                if error is CancellationError {
+                    // Task was cancelled, do nothing (don't show error in new chat)
+                    return
+                }
                 await MainActor.run {
                     self.isLoading = false
                     self.appendErrorMessage(error, for: aiMessageId)
                 }
             }
         }
+        
+        self.setCurrentTask(task)
     }
 }
