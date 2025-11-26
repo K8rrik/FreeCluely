@@ -22,7 +22,7 @@ class ScreenCapture {
         guard let image = captureScreen() else {
             await MainActor.run {
                 appState.isLoading = false
-                let errorMessage = "⚠️ Не удалось сделать скриншот."
+                let errorMessage = "⚠️ Failed to capture screenshot."
                 let errorMsg = ChatMessage(role: .ai, text: errorMessage)
                 appState.currentSession.messages.append(errorMsg)
             }
@@ -38,7 +38,7 @@ class ScreenCapture {
                 imageData = data
             }
             
-            let userMessage = ChatMessage(role: .user, text: "Скриншот отправлен. Проанализируй его.", imageData: imageData)
+            let userMessage = ChatMessage(role: .user, text: "Screenshot sent. Analyzing...", imageData: imageData)
             appState.currentSession.messages.append(userMessage)
         }
         

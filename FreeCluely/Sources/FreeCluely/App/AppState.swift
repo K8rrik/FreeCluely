@@ -87,20 +87,20 @@ class AppState: ObservableObject {
         let errorMessage: String
         
         if let geminiError = error as? GeminiError {
-            errorMessage = "⚠️ Ошибка API (\(geminiError.error.code)): \(geminiError.error.message)"
+            errorMessage = "⚠️ API Error (\(geminiError.error.code)): \(geminiError.error.message)"
         } else if let urlError = error as? URLError {
             switch urlError.code {
             case .notConnectedToInternet:
-                errorMessage = "⚠️ Нет подключения к интернету. Проверьте соединение."
+                errorMessage = "⚠️ No internet connection. Check your connection."
             case .timedOut:
-                errorMessage = "⚠️ Время ожидания истекло. Сервер не отвечает."
+                errorMessage = "⚠️ Request timed out. Server is not responding."
             case .cannotFindHost, .cannotConnectToHost:
-                errorMessage = "⚠️ Не удалось подключиться к серверу."
+                errorMessage = "⚠️ Failed to connect to server."
             default:
-                errorMessage = "⚠️ Ошибка сети: \(urlError.localizedDescription)"
+                errorMessage = "⚠️ Network Error: \(urlError.localizedDescription)"
             }
         } else {
-            errorMessage = "⚠️ Ошибка: \(error.localizedDescription)"
+            errorMessage = "⚠️ Error: \(error.localizedDescription)"
         }
         
         if let index = self.currentSession.messages.firstIndex(where: { $0.id == messageId }) {

@@ -2,93 +2,6 @@ import Foundation
 import AppKit
 import VideoToolbox
 
-// MARK: - Configuration Models
-
-enum GeminiModel: String, CaseIterable {
-    case gemini3ProPreview = "gemini-3-pro-preview"
-    case gemini15Pro = "gemini-1.5-pro"
-    case gemini15Flash = "gemini-1.5-flash"
-    case geminiPro = "gemini-pro"
-    
-    var id: String { self.rawValue }
-}
-
-struct GenerationConfig: Encodable {
-    var temperature: Float?
-    var topP: Float?
-    var topK: Int?
-    var maxOutputTokens: Int?
-    var stopSequences: [String]?
-    var candidateCount: Int?
-    var thinkingConfig: ThinkingConfig?
-    
-    init(temperature: Float? = nil, topP: Float? = nil, topK: Int? = nil, maxOutputTokens: Int? = nil, stopSequences: [String]? = nil, candidateCount: Int? = nil, thinkingConfig: ThinkingConfig? = nil) {
-        self.temperature = temperature
-        self.topP = topP
-        self.topK = topK
-        self.maxOutputTokens = maxOutputTokens
-        self.stopSequences = stopSequences
-        self.candidateCount = candidateCount
-        self.thinkingConfig = thinkingConfig
-    }
-}
-
-struct ThinkingConfig: Encodable {
-    var includeThoughts: Bool?
-    var thinkingLevel: String? // "low", "high"
-    
-    init(includeThoughts: Bool? = nil, thinkingLevel: String? = nil) {
-        self.includeThoughts = includeThoughts
-        self.thinkingLevel = thinkingLevel
-    }
-}
-
-struct Tool: Encodable {
-    var googleSearch: GoogleSearch?
-    
-    struct GoogleSearch: Encodable {}
-    
-    init(googleSearch: Bool = false) {
-        if googleSearch {
-            self.googleSearch = GoogleSearch()
-        }
-    }
-}
-
-enum SafetyCategory: String, Encodable {
-    case harassment = "HARM_CATEGORY_HARASSMENT"
-    case hateSpeech = "HARM_CATEGORY_HATE_SPEECH"
-    case sexuallyExplicit = "HARM_CATEGORY_SEXUALLY_EXPLICIT"
-    case dangerousContent = "HARM_CATEGORY_DANGEROUS_CONTENT"
-}
-
-enum SafetyThreshold: String, Encodable {
-    case blockNone = "BLOCK_NONE"
-    case blockLowAndAbove = "BLOCK_LOW_AND_ABOVE"
-    case blockMediumAndAbove = "BLOCK_MEDIUM_AND_ABOVE"
-    case blockOnlyHigh = "BLOCK_ONLY_HIGH"
-    case blockUnspecified = "HARM_BLOCK_THRESHOLD_UNSPECIFIED"
-}
-
-struct SafetySetting: Encodable {
-    let category: SafetyCategory
-    let threshold: SafetyThreshold
-}
-
-struct GeminiError: Error, Decodable, LocalizedError {
-    let error: ErrorDetail
-    
-    struct ErrorDetail: Decodable {
-        let code: Int
-        let message: String
-        let status: String
-    }
-    
-    var errorDescription: String? {
-        return "Gemini API Error (\(error.code)): \(error.message)"
-    }
-}
-
 // MARK: - Client
 
 class GeminiClient {
@@ -131,7 +44,7 @@ class GeminiClient {
                         image: image,
                         apiKey: apiKey,
                         modelName: model.rawValue,
-                        apiVersion: "v1beta",
+                        apiVersion: AppConstants.Gemini.apiVersion,
                         systemInstruction: systemInstruction,
                         generationConfig: generationConfig,
                         safetySettings: safetySettings,
@@ -157,7 +70,7 @@ class GeminiClient {
                         image: image,
                         apiKey: apiKey,
                         modelName: modelName,
-                        apiVersion: "v1beta",
+                        apiVersion: AppConstants.Gemini.apiVersion,
                         systemInstruction: nil,
                         generationConfig: nil,
                         safetySettings: nil,
@@ -186,15 +99,19 @@ class GeminiClient {
         print("Debug: Checking API Key...")
         if apiKey.isEmpty {
             print("Debug: API Key is empty!")
-            continuation.yield(StreamUpdate(text: "Please set your Gemini API Key.", thought: nil))
+            continuation.yield(StreamUpdate(text: AppConstants.ErrorMessages.noApiKey, thought: nil))
             continuation.finish()
             return
         }
         
-        let urlString = "https://generativelanguage.googleapis.com/\(apiVersion)/models/\(modelName):streamGenerateContent?key=\(apiKey)&alt=sse"
+        var urlComponents = URLComponents(string: "\(AppConstants.Gemini.baseUrl)/\(apiVersion)/models/\(modelName):streamGenerateContent")
+        urlComponents?.queryItems = [
+            URLQueryItem(name: "key", value: apiKey),
+            URLQueryItem(name: "alt", value: "sse")
+        ]
         
-        guard let url = URL(string: urlString) else {
-            throw NSError(domain: "Invalid URL", code: -1, userInfo: nil)
+        guard let url = urlComponents?.url else {
+            throw NSError(domain: AppConstants.ErrorMessages.invalidUrl, code: -1, userInfo: nil)
         }
         
         var request = URLRequest(url: url)
@@ -331,7 +248,7 @@ class GeminiClient {
         let (bytes, response) = try await session.bytes(for: request)
         
         guard let httpResponse = response as? HTTPURLResponse else {
-            throw NSError(domain: "Invalid Response", code: -1, userInfo: nil)
+            throw NSError(domain: AppConstants.ErrorMessages.invalidResponse, code: -1, userInfo: nil)
         }
         
         if httpResponse.statusCode != 200 {
@@ -395,49 +312,5 @@ class GeminiClient {
     struct Part: Decodable {
         let text: String?
         let thought: Bool?
-    }
-    
-    // resize method moved to CGImage extension
-}
-
-extension CGImage {
-    func resize(maxDimension: CGFloat) -> CGImage? {
-        let width = CGFloat(self.width)
-        let height = CGFloat(self.height)
-        
-        let aspectRatio = width / height
-        var newWidth: CGFloat
-        var newHeight: CGFloat
-        
-        if width > height {
-            newWidth = min(width, maxDimension)
-            newHeight = newWidth / aspectRatio
-        } else {
-            newHeight = min(height, maxDimension)
-            newWidth = newHeight * aspectRatio
-        }
-        
-        let colorSpace = CGColorSpaceCreateDeviceRGB()
-        let context = CGContext(
-            data: nil,
-            width: Int(newWidth),
-            height: Int(newHeight),
-            bitsPerComponent: 8,
-            bytesPerRow: 0,
-            space: colorSpace,
-            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
-        )
-        
-        context?.interpolationQuality = .high
-        context?.draw(self, in: CGRect(x: 0, y: 0, width: newWidth, height: newHeight))
-        
-        return context?.makeImage()
-    }
-}
-
-extension CGImage {
-    func jpegData(compressionQuality: CGFloat) -> Data? {
-        let bitmapRep = NSBitmapImageRep(cgImage: self)
-        return bitmapRep.representation(using: .jpeg, properties: [.compressionFactor: compressionQuality])
     }
 }

@@ -65,7 +65,7 @@ struct CustomInstructionsWindowContent: View {
         VStack(spacing: 0) {
             // Header
             HStack {
-                Text("Кастомные инструкции")
+                Text("Custom Instructions")
                     .font(.system(size: 16, weight: .semibold, design: .rounded))
                     .foregroundColor(.white)
                 
@@ -87,7 +87,7 @@ struct CustomInstructionsWindowContent: View {
             .background(Color.black.opacity(0.2))
             
             // Description
-            Text("Эти инструкции будут добавлены к базовому промпту и учитываться при каждом запросе.")
+            Text("These instructions will be added to the base prompt and used for every request.")
                 .font(.system(size: 11))
                 .foregroundColor(.white.opacity(0.6))
                 .padding(.horizontal)
@@ -103,7 +103,7 @@ struct CustomInstructionsWindowContent: View {
                     .padding(8)
                 
                 if customInstructions.isEmpty {
-                    Text("Например:\n- Будь более кратким\n- Используй примеры\n- Предлагай альтернативы")
+                    Text("For example:\n- Be more concise\n- Use examples\n- Offer alternatives")
                         .font(.system(size: 12, design: .monospaced))
                         .foregroundColor(.white.opacity(0.3))
                         .padding(.horizontal, 12)
@@ -127,7 +127,7 @@ struct CustomInstructionsWindowContent: View {
                         showSaveConfirmation = false
                     }
                 }) {
-                    Text("Очистить")
+                    Text("Clear")
                         .font(.system(size: 12))
                         .foregroundColor(.red.opacity(0.8))
                 }
@@ -140,7 +140,7 @@ struct CustomInstructionsWindowContent: View {
                         Image(systemName: "checkmark.circle.fill")
                             .foregroundColor(.green)
                             .font(.system(size: 10))
-                        Text("Сохранено!")
+                        Text("Saved!")
                             .font(.system(size: 11))
                             .foregroundColor(.green)
                     }
@@ -154,7 +154,7 @@ struct CustomInstructionsWindowContent: View {
                         showSaveConfirmation = false
                     }
                 }) {
-                    Text("Сохранить")
+                    Text("Save")
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundColor(.white)
                         .padding(.horizontal, 16)

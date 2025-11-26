@@ -10,17 +10,31 @@ struct MessageBubble: View {
         HStack {
             if message.role == .user {
                 Spacer()
-                Text(message.text)
-                    .font(.system(size: 12))
-                    .padding(8)
-                    .background(Color.blue.opacity(0.8))
-                    .foregroundColor(.white)
-                    .cornerRadius(12)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 12)
-                            .stroke(Color.white.opacity(0.2), lineWidth: 1)
-                    )
-                    .frame(maxWidth: 400, alignment: .trailing)
+                VStack(alignment: .trailing, spacing: 4) {
+                    Text(message.text)
+                        .font(.system(size: 12))
+                        .padding(8)
+                        .background(Color.blue.opacity(0.8))
+                        .foregroundColor(.white)
+                        .cornerRadius(AppConstants.UI.messageCornerRadius)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: AppConstants.UI.messageCornerRadius)
+                                .stroke(Color.white.opacity(0.2), lineWidth: 1)
+                        )
+                    
+                    if let imageData = message.imageData, let nsImage = NSImage(data: imageData) {
+                        Image(nsImage: nsImage)
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                            .frame(maxWidth: 300, maxHeight: 300)
+                            .cornerRadius(8)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .stroke(Color.white.opacity(0.2), lineWidth: 1)
+                            )
+                    }
+                }
+                .frame(maxWidth: 400, alignment: .trailing)
             } else {
                 VStack(alignment: .leading, spacing: 8) {
                     if let thought = message.thought, !thought.isEmpty {
@@ -44,9 +58,9 @@ struct MessageBubble: View {
                 }
                 .padding(8)
                 .background(Color.black.opacity(0.6)) // Darker background for AI
-                .cornerRadius(12)
+                .cornerRadius(AppConstants.UI.messageCornerRadius)
                 .overlay(
-                    RoundedRectangle(cornerRadius: 12)
+                    RoundedRectangle(cornerRadius: AppConstants.UI.messageCornerRadius)
                         .stroke(Color.white.opacity(0.1), lineWidth: 1)
                 )
                 .frame(maxWidth: .infinity, alignment: .leading)

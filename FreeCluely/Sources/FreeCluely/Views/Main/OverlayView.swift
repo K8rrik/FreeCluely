@@ -16,9 +16,9 @@ struct OverlayView: View {
             .frame(minHeight: 100)
 
             .background(Color.black.opacity(0.8))
-            .cornerRadius(20)
+            .cornerRadius(AppConstants.UI.cornerRadius)
             .overlay(
-                RoundedRectangle(cornerRadius: 20)
+                RoundedRectangle(cornerRadius: AppConstants.UI.cornerRadius)
                     .stroke(Color.white.opacity(0.2), lineWidth: 1)
             )
             .padding(.horizontal, 20)
@@ -37,7 +37,7 @@ struct OverlayView: View {
         HStack {
             // Left side: Spacer (Hints moved to buttons)
             // Left side: Logo
-            Text("FreeCluely")
+            Text(AppConstants.appName)
                 .font(.system(size: 16, weight: .bold, design: .rounded))
                 .foregroundColor(.white.opacity(0.8))
                 .padding(.leading, 4)
@@ -102,7 +102,7 @@ struct OverlayView: View {
                 
                 // Eye Button
                 VStack(spacing: 2) {
-                    Text("Зажать ⌥")
+                    Text("Hold ⌥")
                         .font(.system(size: 10))
                         .foregroundColor(.white.opacity(0.6))
                     Button(action: {
@@ -118,7 +118,7 @@ struct OverlayView: View {
                 
                 // Power Button (Quit)
                 VStack(spacing: 2) {
-                     Text("Зажать ⌥")
+                     Text("Hold ⌥")
                         .font(.system(size: 10))
                         .foregroundColor(.white.opacity(0.6))
                      Button(action: {
@@ -185,7 +185,7 @@ struct OverlayView: View {
 
             
             HStack {
-                TextField(appState.isLoading ? "Подождите, идет генерация..." : "Анализ экрана (⌘⇧A) или Спросите что-нибудь...", text: $appState.inputText)
+                TextField(appState.isLoading ? AppConstants.Placeholders.loading : AppConstants.Placeholders.inputDefault, text: $appState.inputText)
                     .textFieldStyle(PlainTextFieldStyle())
                     .font(.system(size: 14))
                     .foregroundColor(.white)
@@ -207,18 +207,6 @@ struct OverlayView: View {
     
 
     
-}
-
-struct IconButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .foregroundColor(.white.opacity(0.6))
-            .frame(width: 20, height: 20)
-            .padding(6)
-            .background(Color.white.opacity(configuration.isPressed ? 0.2 : 0.0))
-            .clipShape(Circle())
-            .scaleEffect(configuration.isPressed ? 0.95 : 1.0)
-    }
 }
 
 
