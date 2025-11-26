@@ -1,5 +1,7 @@
 import SwiftUI
 
+import AppKit
+
 struct OverlayView: View {
     @ObservedObject var appState: AppState
     
@@ -11,7 +13,7 @@ struct OverlayView: View {
                 messagesView
                 inputView
             }
-            .frame(minHeight: 140)
+            .frame(minHeight: 100)
 
             .background(Color.black.opacity(0.8))
             .cornerRadius(20)
@@ -23,7 +25,6 @@ struct OverlayView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.clear)
-        .overlay(historyOverlay)
         .overlay(
             ResizeHandleView()
                 .frame(width: 30, height: 30)
@@ -46,7 +47,7 @@ struct OverlayView: View {
 
             
             // Right side: Action Buttons
-            HStack(spacing: 16) {
+            HStack(spacing: 10) {
                 // Clear Button
                 VStack(spacing: 2) {
                     Text("⌘⇧C")
@@ -60,15 +61,26 @@ struct OverlayView: View {
                     .buttonStyle(IconButtonStyle())
                 }
                 
+                // Settings Button (Custom Instructions)
+                VStack(spacing: 2) {
+                    Text("⌘⇧I")
+                        .font(.system(size: 10))
+                        .foregroundColor(.white.opacity(0.6))
+                    Button(action: {
+                        appState.toggleCustomInstructionsWindow()
+                    }) {
+                        Image(systemName: "gearshape")
+                    }
+                    .buttonStyle(IconButtonStyle())
+                }
+                
                 // History Button
                 VStack(spacing: 2) {
                     Text("⌘⇧H")
                         .font(.system(size: 10))
                         .foregroundColor(.white.opacity(0.6))
                     Button(action: {
-                        withAnimation {
-                            appState.showHistory.toggle()
-                        }
+                        appState.toggleHistoryWindow()
                     }) {
                         Image(systemName: "clock")
                     }
@@ -90,7 +102,7 @@ struct OverlayView: View {
                 
                 // Eye Button
                 VStack(spacing: 2) {
-                    Text("Hold ⌥")
+                    Text("Зажать ⌥")
                         .font(.system(size: 10))
                         .foregroundColor(.white.opacity(0.6))
                     Button(action: {
@@ -106,7 +118,7 @@ struct OverlayView: View {
                 
                 // Power Button (Quit)
                 VStack(spacing: 2) {
-                     Text("Hold ⌥")
+                     Text("Зажать ⌥")
                         .font(.system(size: 10))
                         .foregroundColor(.white.opacity(0.6))
                      Button(action: {
@@ -120,8 +132,9 @@ struct OverlayView: View {
                 }
             }
         }
-        .padding(.vertical, 8)
-        .padding(.horizontal)
+        .padding(.vertical, 6)
+        .padding(.leading)
+        .padding(.trailing, 20)
     }
     
     @ViewBuilder
@@ -145,7 +158,7 @@ struct OverlayView: View {
                     }
                 }
                 .padding(.horizontal)
-                .padding(.bottom, 8)
+                .padding(.bottom, 4)
             }
             .onChange(of: appState.currentSession.messages.last?.text) { _ in
                 if let lastId = appState.currentSession.messages.last?.id {
@@ -167,35 +180,33 @@ struct OverlayView: View {
     }
     
     var inputView: some View {
-        HStack {
-            TextField(appState.isLoading ? "Подождите, идет генерация..." : "Анализ экрана (⌘⇧A) или Спросите что-нибудь...", text: $appState.inputText)
-                .textFieldStyle(PlainTextFieldStyle())
-                .font(.system(size: 14))
-                .foregroundColor(.white)
-                .padding(12)
-                .background(Color.white.opacity(appState.isLoading ? 0.05 : 0.1))
-                .cornerRadius(8)
-                .disabled(appState.isLoading)
-                .onSubmit {
-                    appState.sendChatMessage()
-                }
+        VStack(alignment: .leading, spacing: 8) {
+            // Image Preview
+
+            
+            HStack {
+                TextField(appState.isLoading ? "Подождите, идет генерация..." : "Анализ экрана (⌘⇧A) или Спросите что-нибудь...", text: $appState.inputText)
+                    .textFieldStyle(PlainTextFieldStyle())
+                    .font(.system(size: 14))
+                    .foregroundColor(.white)
+                    .padding(12)
+                    .background(Color.white.opacity(appState.isLoading ? 0.05 : 0.1))
+                    .cornerRadius(8)
+                    .disabled(appState.isLoading)
+                    .onSubmit {
+                        appState.sendChatMessage()
+                    }
+
+            }
+            .padding(.horizontal)
+            .padding(.bottom, 8)
         }
-        .padding(.horizontal)
-        .padding(.bottom, 16)
     }
     
 
     
-    @ViewBuilder
-    var historyOverlay: some View {
-        if appState.showHistory {
-            HistoryView(appState: appState)
-                .transition(.opacity)
-                .padding(.trailing, 20)
-                .padding(.top, 260) // Increased top padding to push it down below header/input area
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
-        }
-    }
+
+    
 }
 
 struct IconButtonStyle: ButtonStyle {

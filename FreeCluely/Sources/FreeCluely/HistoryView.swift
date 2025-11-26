@@ -13,9 +13,7 @@ struct HistoryView: View {
                     .foregroundColor(.white)
                 Spacer()
                 Button(action: {
-                    withAnimation {
-                        appState.showHistory = false
-                    }
+                    appState.historyWindow?.close()
                 }) {
                     Image(systemName: "xmark")
                         .font(.system(size: 12, weight: .bold))
@@ -36,9 +34,7 @@ struct HistoryView: View {
                         HistoryItemView(session: session, isHovered: hoveredItemId == session.id)
                             .onTapGesture {
                                 appState.currentSession = session
-                                withAnimation {
-                                    appState.showHistory = false
-                                }
+                                appState.historyWindow?.close()
                             }
                             .onHover { isHovered in
                                 if isHovered {
@@ -60,15 +56,15 @@ struct HistoryView: View {
             }
         }
         .background(.ultraThinMaterial)
-        .background(Color.black.opacity(0.8)) // Dark background to hide content behind
-        .cornerRadius(16)
+        .background(Color.black.opacity(0.8))
+        .cornerRadius(20)
         .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(Color.white.opacity(0.1), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 20)
+                .stroke(Color.white.opacity(0.2), lineWidth: 1)
         )
-        .frame(width: 300, height: 500)
-        .padding(12)
-        .shadow(color: .black.opacity(0.5), radius: 20, x: 0, y: 10)
+        .padding(20)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color.clear)
     }
 }
 

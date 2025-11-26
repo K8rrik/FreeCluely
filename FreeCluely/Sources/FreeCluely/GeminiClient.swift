@@ -264,7 +264,7 @@ class GeminiClient {
              ])
         }
         
-        let defaultSystemPrompt = "ВСЕГДА отвечай на русском языке. Используй Markdown. Структурируй ответ заголовками. Оформи вывод кода с использованием Markdown Code Blocks. Обязательно указывай тег языка программирования (syntax highlighting tag) для каждого блока кода. Не пиши комментарии и текст в блоках и между блоками кодов. Не используй LaTeX. Пиши формулы обычным текстом. Используй жирный шрифт для выделения. Краткое объяснение, затем решение."
+        let defaultSystemPrompt = CustomInstructionsManager.shared.buildFullSystemPrompt()
         
         let finalSystemInstruction = systemInstruction ?? defaultSystemPrompt
         

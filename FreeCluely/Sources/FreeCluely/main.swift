@@ -12,6 +12,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.setActivationPolicy(.accessory) // Hide from Dock and App Switcher
         
         overlayWindow = OverlayWindow(appState: appState)
+        appState.mainWindow = overlayWindow
         overlayWindow.makeKeyAndOrderFront(nil)
         
         // Initialize HotKey Manager

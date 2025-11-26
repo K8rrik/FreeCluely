@@ -30,7 +30,7 @@ class ScreenCapture {
         }
         
         await MainActor.run {
-            appState.lastCapturedImage = image
+
             
             var imageData: Data? = nil
             if let resized = image.resize(maxDimension: 1024),

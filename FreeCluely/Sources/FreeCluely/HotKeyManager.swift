@@ -77,6 +77,21 @@ class HotKeyManager {
             print("Error registering history hotkey: \(historyStatus)")
         }
         
+        // Register Cmd+Shift+I (Instructions/Settings)
+        var instructionsHotKeyID = EventHotKeyID()
+        instructionsHotKeyID.signature = OSType("swat".asUInt32)
+        instructionsHotKeyID.id = 10
+        
+        let instructionsKeyCode: UInt32 = 34 // 'I' key
+        var instructionsHotKeyRef: EventHotKeyRef?
+        
+        let instructionsStatus = RegisterEventHotKey(instructionsKeyCode, modifierFlags, instructionsHotKeyID, GetApplicationEventTarget(), 0, &instructionsHotKeyRef)
+        
+        if instructionsStatus != noErr {
+            print("Error registering instructions hotkey: \(instructionsStatus)")
+        }
+        
+        
         // Register Cmd + Arrow keys for window movement
         let arrowModifierFlags: UInt32 = UInt32(cmdKey)
         
@@ -149,6 +164,8 @@ class HotKeyManager {
                             HotKeyManager.shared.handleClearHotKey()
                         } else if hotKeyID.id == 5 {
                             HotKeyManager.shared.handleHistoryHotKey()
+                        } else if hotKeyID.id == 10 {
+                            HotKeyManager.shared.handleInstructionsHotKey()
                         }
                     }
                 } else if kind == UInt32(kEventHotKeyReleased) {
@@ -204,8 +221,10 @@ class HotKeyManager {
             if !appState.isVisible {
                 appState.isVisible = true
             }
-            // Close history if open
-            appState.showHistory = false
+            // Close history window if open
+            if let window = appState.historyWindow, window.isVisible {
+                window.close()
+            }
             
             // Trigger capture and API call
             Task {
@@ -239,9 +258,16 @@ class HotKeyManager {
         guard let appState = appState else { return }
         
         DispatchQueue.main.async {
-            withAnimation {
-                appState.showHistory.toggle()
-            }
+            appState.toggleHistoryWindow()
+        }
+    }
+    
+    func handleInstructionsHotKey() {
+        print("Instructions Hotkey pressed!")
+        guard let appState = appState else { return }
+        
+        DispatchQueue.main.async {
+            appState.toggleCustomInstructionsWindow()
         }
     }
     

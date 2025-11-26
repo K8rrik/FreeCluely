@@ -12,10 +12,14 @@ class AppState: ObservableObject {
     @Published var isOptionPressed: Bool = false
     
     @Published var history: [ChatSession] = []
-    @Published var showHistory: Bool = false
+    
+    // Separate Windows
+    weak var mainWindow: NSWindow?
+    var historyWindow: HistoryWindowController?
+    var customInstructionsWindow: CustomInstructionsWindow?
     
     // Chat & Context
-    @Published var lastCapturedImage: CGImage? = nil
+
     @Published var inputText: String = ""
     @Published var currentSession: ChatSession = ChatSession()
     
@@ -47,7 +51,7 @@ class AppState: ObservableObject {
         saveCurrentSession()
         
         self.currentSession = ChatSession()
-        self.lastCapturedImage = nil
+
         self.isLoading = false // Reset loading state for new chat
         // Don't add to history yet, wait for content
     }
@@ -114,17 +118,9 @@ class AppState: ObservableObject {
         inputText = "" // Clear input immediately
         
         // Add user message
-        var imageData: Data? = nil
-        if let image = lastCapturedImage {
-            // Resize and convert to data for storage
-            if let resized = image.resize(maxDimension: 1024),
-               let data = resized.jpegData(compressionQuality: 0.7) {
-                imageData = data
-            }
-            lastCapturedImage = nil // Clear after using
-        }
+
         
-        let userMessage = ChatMessage(role: .user, text: messageText, imageData: imageData)
+        let userMessage = ChatMessage(role: .user, text: messageText, imageData: nil)
         currentSession.messages.append(userMessage)
         
         // Prepare ID for the incoming AI message
@@ -203,5 +199,29 @@ class AppState: ObservableObject {
         }
         
         self.setCurrentTask(task)
+    }
+    
+    // MARK: - Window Management
+    
+    func toggleHistoryWindow() {
+        if let window = historyWindow, window.isVisible {
+            window.close()
+        } else {
+            if historyWindow == nil {
+                historyWindow = HistoryWindowController(appState: self, mainWindow: mainWindow)
+            }
+            historyWindow?.makeKeyAndOrderFront(nil)
+        }
+    }
+    
+    func toggleCustomInstructionsWindow() {
+        if let window = customInstructionsWindow, window.isVisible {
+            window.close()
+        } else {
+            if customInstructionsWindow == nil {
+                customInstructionsWindow = CustomInstructionsWindow(mainWindow: mainWindow)
+            }
+            customInstructionsWindow?.makeKeyAndOrderFront(nil)
+        }
     }
 }

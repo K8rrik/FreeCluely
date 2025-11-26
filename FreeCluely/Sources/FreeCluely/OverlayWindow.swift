@@ -11,7 +11,7 @@ class OverlayWindow: NSWindow {
         // Create a window with a reasonable default size, positioned at the bottom
         let screenRect = NSScreen.main?.frame ?? .zero
         let width: CGFloat = 600
-        let height: CGFloat = 140
+        let height: CGFloat = 100
         let x = (screenRect.width - width) / 2
         let y = screenRect.maxY - height - 0
         
@@ -67,10 +67,10 @@ class OverlayWindow: NSWindow {
                             self.setFrame(newFrame, display: true, animate: true)
                         }
                     } else {
-                        // If empty and not loading, shrink back to 140
-                        if self.frame.height > 141 {
+                        // If empty and not loading, shrink back to 100
+                        if self.frame.height > 101 {
                             let currentTop = self.frame.maxY
-                            let newHeight: CGFloat = 140
+                            let newHeight: CGFloat = 100
                             let newY = currentTop - newHeight
                             let newFrame = NSRect(x: self.frame.origin.x, y: newY, width: self.frame.width, height: newHeight)
                             self.setFrame(newFrame, display: true, animate: true)
