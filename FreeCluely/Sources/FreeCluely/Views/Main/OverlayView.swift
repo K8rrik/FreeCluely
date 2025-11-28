@@ -23,6 +23,14 @@ struct OverlayView: View {
                     .stroke(Color.white.opacity(0.2), lineWidth: 1)
             )
             .padding(.horizontal, 20)
+            
+            // Suggestions Container attached to the bottom of the main window
+            if !appState.suggestions.isEmpty {
+                SuggestionsView(appState: appState)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 8)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+            }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.clear)
@@ -180,17 +188,7 @@ struct OverlayView: View {
                         .id("loading-indicator")
                     }
                     
-                    if appState.isVoiceModeActive && !appState.liveTranscript.isEmpty {
-                        HStack {
-                            Text(appState.liveTranscript)
-                                .font(.system(size: 12, weight: .medium))
-                                .foregroundColor(.gray)
-                                .italic()
-                            Spacer()
-                        }
-                        .padding(.horizontal)
-                        .padding(.bottom, 4)
-                    }
+
                 }
                 .padding(.horizontal)
                 .padding(.bottom, 4)
@@ -217,7 +215,7 @@ struct OverlayView: View {
     var inputView: some View {
         VStack(alignment: .leading, spacing: 8) {
             // Image Preview
-
+            
             
             HStack {
                 TextField(appState.isLoading ? AppConstants.Placeholders.loading : AppConstants.Placeholders.inputDefault, text: $appState.inputText)

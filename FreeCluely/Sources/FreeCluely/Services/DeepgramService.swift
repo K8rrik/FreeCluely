@@ -32,8 +32,11 @@ class DeepgramService: ObservableObject {
         self.apiKey = apiKey
         
         // Deepgram Streaming URL
-        // We use 'nova-2' model for speed and accuracy, and 'smart_format=true' for punctuation
-        let urlString = "wss://api.deepgram.com/v1/listen?model=nova-2&smart_format=true&encoding=linear16&sample_rate=48000&channels=1&language=ru"
+        // We use 'nova-2' model which is currently very stable for Russian.
+        // 'interim_results=true' provides faster feedback.
+        // 'smart_format=true' for punctuation.
+        // 'filler_words=false' to remove "umm", "uh" etc.
+        let urlString = "wss://api.deepgram.com/v1/listen?model=nova-2&smart_format=true&interim_results=true&filler_words=false&encoding=linear16&sample_rate=48000&channels=1&language=ru"
         
         guard let url = URL(string: urlString) else {
             print("Invalid Deepgram URL")

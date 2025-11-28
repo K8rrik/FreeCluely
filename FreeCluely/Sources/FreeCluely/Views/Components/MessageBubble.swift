@@ -61,7 +61,7 @@ struct MessageBubble: View {
                     }
                 }
                 .padding(8)
-                .background(Color.black.opacity(0.6)) // Darker background for AI
+                .background(message.isAmbient ? Color.purple.opacity(0.6) : Color.black.opacity(0.6)) // Darker background for AI, Purple for Ambient
                 .cornerRadius(AppConstants.UI.messageCornerRadius)
                 .overlay(
                     RoundedRectangle(cornerRadius: AppConstants.UI.messageCornerRadius)

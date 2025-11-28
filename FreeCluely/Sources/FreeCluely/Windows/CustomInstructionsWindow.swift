@@ -1,8 +1,11 @@
 import SwiftUI
 import AppKit
+import Combine
 
 class CustomInstructionsWindow: NSWindow {
-    init(mainWindow: NSWindow?) {
+    private var cancellables = Set<AnyCancellable>()
+    
+    init(appState: AppState, mainWindow: NSWindow?) {
         // Calculate position below main window
         let width: CGFloat = 500
         let height: CGFloat = 280
@@ -40,6 +43,15 @@ class CustomInstructionsWindow: NSWindow {
         
         let contentView = CustomInstructionsWindowContent(window: self)
         self.contentView = NSHostingView(rootView: contentView)
+        
+        // Observe visibility
+        appState.$isVisible
+            .sink { [weak self] isVisible in
+                if !isVisible {
+                    self?.close()
+                }
+            }
+            .store(in: &cancellables)
     }
     
     override var canBecomeKey: Bool {

@@ -1,7 +1,10 @@
 import SwiftUI
 import AppKit
+import Combine
 
 class HistoryWindowController: NSWindow {
+    private var cancellables = Set<AnyCancellable>()
+    
     init(appState: AppState, mainWindow: NSWindow?) {
         // Calculate position to the right of main window
         let width: CGFloat = 320
@@ -40,6 +43,15 @@ class HistoryWindowController: NSWindow {
         
         let contentView = HistoryView(appState: appState)
         self.contentView = NSHostingView(rootView: contentView)
+        
+        // Observe visibility
+        appState.$isVisible
+            .sink { [weak self] isVisible in
+                if !isVisible {
+                    self?.close()
+                }
+            }
+            .store(in: &cancellables)
     }
     
     override var canBecomeKey: Bool {
