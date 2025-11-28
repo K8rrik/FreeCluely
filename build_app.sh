@@ -35,7 +35,7 @@ cat <<EOF > "$APP_BUNDLE/Contents/Info.plist"
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <key>CFBundleExecutable</key>
+<key>CFBundleExecutable</key>
     <string>$APP_NAME</string>
     <key>CFBundleIdentifier</key>
     <string>com.kerrik.$APP_NAME</string>
@@ -49,9 +49,17 @@ cat <<EOF > "$APP_BUNDLE/Contents/Info.plist"
     <true/>
     <key>NSHighResolutionCapable</key>
     <true/>
+    <key>NSScreenCaptureUsageDescription</key>
+    <string>Приложению нужен доступ к записи экрана для работы функции скриншотов.</string>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>Приложению нужен доступ к микрофону для записи звука.</string>
 </dict>
 </plist>
 EOF
+
+# Code Signing (Ad-hoc) to help persist permissions
+echo "Signing app..."
+codesign --force --deep --sign - "$APP_BUNDLE"
 
 # Handle .env
 if [ -f "$SOURCE_DIR/.env" ]; then

@@ -25,9 +25,12 @@ class OverlayWindow: NSWindow {
         self.isOpaque = false
         self.backgroundColor = .clear
         self.level = .statusBar // Allow window to be above menu bar
-        self.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        self.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
         self.isMovableByWindowBackground = false // Disable system dragging to prevent snapping
         self.hidesOnDeactivate = false
+        
+        // Don't steal focus from other apps
+        self.canHide = false
         
         // Initial sharing type
         self.sharingType = .none
@@ -42,7 +45,8 @@ class OverlayWindow: NSWindow {
         appState.$isVisible
             .sink { [weak self] isVisible in
                 if isVisible {
-                    self?.orderFront(nil)
+                    // Show window without activating the app
+                    self?.orderFrontRegardless()
                 } else {
                     self?.orderOut(nil)
                 }
@@ -80,6 +84,16 @@ class OverlayWindow: NSWindow {
             }
             .store(in: &cancellables)
         
+        // When shouldFocusInput is triggered, activate app and make window key
+        appState.$shouldFocusInput
+            .sink { [weak self] shouldFocus in
+                if shouldFocus {
+                    NSApp.activate(ignoringOtherApps: true)
+                    self?.makeKeyAndOrderFront(nil)
+                }
+            }
+            .store(in: &cancellables)
+        
         let overlayView = OverlayView(appState: appState)
         let contentView = CursorFixingHostingView(rootView: overlayView)
         self.contentView = contentView
@@ -89,6 +103,28 @@ class OverlayWindow: NSWindow {
                 appState?.isOptionPressed = true
             } else {
                 appState?.isOptionPressed = false
+            }
+            return event
+        }
+        
+        // Add GLOBAL keyboard shortcut for focusing input field: Cmd+/
+        // This works even when the app is not focused
+        NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak appState] event in
+            // Check for Cmd+/ (forward slash)
+            if event.modifierFlags.contains(.command) && event.charactersIgnoringModifiers == "/" {
+                DispatchQueue.main.async {
+                    appState?.isVisible = true
+                    appState?.shouldFocusInput = true
+                }
+            }
+        }
+        
+        // Also add local monitor for when app IS focused
+        NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak appState] event in
+            // Check for Cmd+/ (forward slash)
+            if event.modifierFlags.contains(.command) && event.charactersIgnoringModifiers == "/" {
+                appState?.shouldFocusInput = true
+                return nil // Consume the event
             }
             return event
         }

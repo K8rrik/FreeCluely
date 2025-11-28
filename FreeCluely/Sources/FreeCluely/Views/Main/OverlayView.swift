@@ -4,6 +4,7 @@ import AppKit
 
 struct OverlayView: View {
     @ObservedObject var appState: AppState
+    @FocusState private var isInputFocused: Bool
     
     var body: some View {
         VStack(spacing: 0) {
@@ -37,17 +38,27 @@ struct OverlayView: View {
         HStack {
             // Left side: Spacer (Hints moved to buttons)
             // Left side: Logo
-            Text(AppConstants.appName)
-                .font(.system(size: 16, weight: .bold, design: .rounded))
-                .foregroundColor(.white.opacity(0.8))
-                .padding(.leading, 4)
+            HStack(spacing: 8) {
+                Text(AppConstants.appName)
+                    .font(.system(size: 16, weight: .bold, design: .rounded))
+                    .foregroundColor(.white.opacity(0.8))
+                
+                Text("⌘/")
+                    .font(.system(size: 11))
+                    .foregroundColor(.white.opacity(0.4))
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(Color.white.opacity(0.1))
+                    .cornerRadius(4)
+            }
+            .padding(.leading, 4)
             
             Spacer()
             
 
             
             // Right side: Action Buttons
-            HStack(spacing: 10) {
+            HStack(spacing: 8) {
                 // Clear Button
                 VStack(spacing: 2) {
                     Text("⌘⇧C")
@@ -100,41 +111,53 @@ struct OverlayView: View {
                     .buttonStyle(IconButtonStyle())
                 }
                 
-                // Eye Button
+                // Voice Mode Button
+                VStack(spacing: 2) {
+                    Text("Voice")
+                        .font(.system(size: 10))
+                        .foregroundColor(.white.opacity(0.6))
+                    Button(action: {
+                        appState.toggleVoiceMode()
+                    }) {
+                        Image(systemName: appState.isVoiceModeActive ? "mic.fill" : "mic.slash")
+                            .foregroundColor(appState.isVoiceModeActive ? .red : .white)
+                    }
+                    .buttonStyle(IconButtonStyle())
+                }
+                
+                // Eye & Power Buttons (with shared Hold ⌥ label)
                 VStack(spacing: 2) {
                     Text("Hold ⌥")
                         .font(.system(size: 10))
                         .foregroundColor(.white.opacity(0.6))
-                    Button(action: {
-                        appState.isInspectable.toggle()
-                    }) {
-                        Image(systemName: appState.isInspectable ? "eye" : "eye.slash")
-                            .foregroundColor(appState.isInspectable ? .green : .white.opacity(0.6))
+                    HStack(spacing: 8) {
+                        // Eye Button
+                        Button(action: {
+                            appState.isInspectable.toggle()
+                        }) {
+                            Image(systemName: appState.isInspectable ? "eye" : "eye.slash")
+                                .foregroundColor(appState.isInspectable ? .green : .white.opacity(0.6))
+                        }
+                        .buttonStyle(IconButtonStyle())
+                        .disabled(!appState.isOptionPressed)
+                        .opacity(appState.isOptionPressed ? 1.0 : 0.5)
+                        
+                        // Power Button (Quit)
+                        Button(action: {
+                            NSApplication.shared.terminate(nil)
+                        }) {
+                            Image(systemName: "power")
+                        }
+                        .buttonStyle(IconButtonStyle())
+                        .disabled(!appState.isOptionPressed)
+                        .opacity(appState.isOptionPressed ? 1.0 : 0.5)
                     }
-                    .buttonStyle(IconButtonStyle())
-                    .disabled(!appState.isOptionPressed)
-                    .opacity(appState.isOptionPressed ? 1.0 : 0.5)
-                }
-                
-                // Power Button (Quit)
-                VStack(spacing: 2) {
-                     Text("Hold ⌥")
-                        .font(.system(size: 10))
-                        .foregroundColor(.white.opacity(0.6))
-                     Button(action: {
-                        NSApplication.shared.terminate(nil)
-                    }) {
-                        Image(systemName: "power")
-                    }
-                    .buttonStyle(IconButtonStyle())
-                    .disabled(!appState.isOptionPressed)
-                    .opacity(appState.isOptionPressed ? 1.0 : 0.5)
                 }
             }
         }
         .padding(.vertical, 6)
         .padding(.leading)
-        .padding(.trailing, 20)
+        .padding(.trailing, 8)
     }
     
     @ViewBuilder
@@ -155,6 +178,18 @@ struct OverlayView: View {
                         .padding(.leading, 8)
                         .transition(.opacity)
                         .id("loading-indicator")
+                    }
+                    
+                    if appState.isVoiceModeActive && !appState.liveTranscript.isEmpty {
+                        HStack {
+                            Text(appState.liveTranscript)
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundColor(.gray)
+                                .italic()
+                            Spacer()
+                        }
+                        .padding(.horizontal)
+                        .padding(.bottom, 4)
                     }
                 }
                 .padding(.horizontal)
@@ -193,8 +228,15 @@ struct OverlayView: View {
                     .background(Color.white.opacity(appState.isLoading ? 0.05 : 0.1))
                     .cornerRadius(8)
                     .disabled(appState.isLoading)
+                    .focused($isInputFocused)
                     .onSubmit {
                         appState.sendChatMessage()
+                    }
+                    .onChange(of: appState.shouldFocusInput) { shouldFocus in
+                        if shouldFocus {
+                            isInputFocused = true
+                            appState.shouldFocusInput = false
+                        }
                     }
 
             }

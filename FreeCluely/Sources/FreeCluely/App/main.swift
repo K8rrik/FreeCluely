@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import ApplicationServices
 
 class AppDelegate: NSObject, NSApplicationDelegate {
     var overlayWindow: OverlayWindow!
@@ -7,6 +8,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     @MainActor
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // Check for Accessibility permissions (required for global hotkey monitoring)
+        checkAccessibilityPermissions()
+        
         appState = AppState()
         
         NSApp.setActivationPolicy(.accessory) // Hide from Dock and App Switcher
@@ -17,6 +21,18 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         
         // Initialize HotKey Manager
         HotKeyManager.shared.setup(appState: appState, overlayWindow: overlayWindow)
+    }
+    
+    private func checkAccessibilityPermissions() {
+        let options: NSDictionary = [kAXTrustedCheckOptionPrompt.takeRetainedValue() as String: true]
+        let accessibilityEnabled = AXIsProcessTrustedWithOptions(options)
+        
+        if !accessibilityEnabled {
+            print("⚠️ Accessibility permissions not granted. Global hotkey (Cmd+/) will not work.")
+            print("Please enable accessibility permissions in System Preferences > Privacy & Security > Accessibility")
+        } else {
+            print("✅ Accessibility permissions granted. Global hotkey enabled.")
+        }
     }
 }
 

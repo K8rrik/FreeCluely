@@ -14,7 +14,11 @@ struct MessageBubble: View {
                     Text(message.text)
                         .font(.system(size: 12))
                         .padding(8)
-                        .background(Color.blue.opacity(0.8))
+                        .background(
+                            message.text.starts(with: "[Heard]:") ? Color.orange.opacity(0.8) :
+                            message.text.starts(with: "[You]:") ? Color.green.opacity(0.8) :
+                            Color.blue.opacity(0.8)
+                        )
                         .foregroundColor(.white)
                         .cornerRadius(AppConstants.UI.messageCornerRadius)
                         .overlay(

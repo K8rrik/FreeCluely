@@ -10,6 +10,7 @@ class AppState: ObservableObject {
     @Published var isInspectable: Bool = false
     @Published var isVisible: Bool = true
     @Published var isOptionPressed: Bool = false
+    @Published var shouldFocusInput: Bool = false
     
     @Published var history: [ChatSession] = []
     
@@ -201,6 +202,117 @@ class AppState: ObservableObject {
         self.setCurrentTask(task)
     }
     
+    // MARK: - Voice Mode
+    
+    @Published var isVoiceModeActive: Bool = false
+    @Published var liveTranscript: String = ""
+    
+    private var systemAudioService: DeepgramService?
+    private var micAudioService: DeepgramService?
+    
+    func toggleVoiceMode() {
+        if isVoiceModeActive {
+            stopVoiceMode()
+        } else {
+            startVoiceMode()
+        }
+    }
+    
+    private func startVoiceMode() {
+        guard let deepgramKey = ConfigLoader.loadEnv()["DEEPGRAM_API_KEY"], !deepgramKey.isEmpty else {
+            print("Deepgram API Key missing")
+            let errorMsg = ChatMessage(role: .ai, text: "⚠️ Deepgram API Key missing. Please add DEEPGRAM_API_KEY to your .env file.")
+            currentSession.messages.append(errorMsg)
+            return
+        }
+        
+        isVoiceModeActive = true
+        
+        // Initialize Services
+        systemAudioService = DeepgramService()
+        // micAudioService = DeepgramService() // Disabled by user request
+        
+        // Connect to Deepgram
+        systemAudioService?.connect(apiKey: deepgramKey)
+        // micAudioService?.connect(apiKey: deepgramKey) // Disabled by user request
+        
+        // Configure Audio Capture Callbacks
+        if #available(macOS 13.0, *) {
+            AudioCaptureManager.shared.onSystemAudioData = { [weak self] data in
+                self?.systemAudioService?.sendAudioData(data)
+            }
+            
+            // AudioCaptureManager.shared.onMicrophoneAudioData = { [weak self] data in
+            //     self?.micAudioService?.sendAudioData(data)
+            // }
+        }
+        
+        // Start Audio Capture
+        Task {
+            if #available(macOS 13.0, *) {
+                do {
+                    try await AudioCaptureManager.shared.startCapture()
+                } catch {
+                    await MainActor.run {
+                        self.isVoiceModeActive = false
+                        self.appendErrorMessage(error, for: UUID())
+                    }
+                }
+            } else {
+                await MainActor.run {
+                    self.isVoiceModeActive = false
+                    let errorMsg = ChatMessage(role: .ai, text: "⚠️ Voice Mode requires macOS 13.0 or later.")
+                    self.currentSession.messages.append(errorMsg)
+                }
+            }
+        }
+        
+        // Listen for transcripts (System)
+        Task {
+            guard let stream = systemAudioService?.transcriptStream else { return }
+            for await event in stream {
+                await MainActor.run {
+                    self.handleTranscriptEvent(event, source: "Heard")
+                }
+            }
+        }
+        
+        // Listen for transcripts (Mic)
+        // Task {
+        //     guard let stream = micAudioService?.transcriptStream else { return }
+        //     for await event in stream {
+        //         await MainActor.run {
+        //             self.handleTranscriptEvent(event, source: "You")
+        //         }
+        //     }
+        // }
+    }
+    
+    private func stopVoiceMode() {
+        isVoiceModeActive = false
+        if #available(macOS 13.0, *) {
+            AudioCaptureManager.shared.stopCapture()
+            AudioCaptureManager.shared.onSystemAudioData = nil
+            AudioCaptureManager.shared.onMicrophoneAudioData = nil
+        }
+        systemAudioService?.disconnect()
+        micAudioService?.disconnect()
+        systemAudioService = nil
+        micAudioService = nil
+        liveTranscript = ""
+    }
+    
+    private func handleTranscriptEvent(_ event: TranscriptEvent, source: String) {
+        // Update live transcript preview
+        if !event.isFinal {
+            self.liveTranscript = event.text
+        } else {
+            self.liveTranscript = ""
+            let message = ChatMessage(role: .user, text: event.text)
+            self.currentSession.messages.append(message)
+        }
+    }
+
     // MARK: - Window Management
     
     func toggleHistoryWindow() {

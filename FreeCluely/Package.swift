@@ -16,7 +16,8 @@ let package = Package(
     dependencies: [
         .package(url: "https://github.com/gonzalezreal/MarkdownUI", from: "2.1.0"),
         .package(url: "https://github.com/johnsundell/splash", from: "0.16.0"),
-        .package(url: "https://github.com/raspu/Highlightr", from: "2.1.2")
+        .package(url: "https://github.com/raspu/Highlightr", from: "2.1.2"),
+        .package(url: "https://github.com/daltoniam/Starscream", from: "4.0.0")
     ],
     targets: [
         // Targets are the basic building blocks of a package. A target can define a module or a test suite.
@@ -26,7 +27,8 @@ let package = Package(
             dependencies: [
                 .product(name: "MarkdownUI", package: "MarkdownUI"),
                 .product(name: "Splash", package: "Splash"),
-                .product(name: "Highlightr", package: "Highlightr")
+                .product(name: "Highlightr", package: "Highlightr"),
+                .product(name: "Starscream", package: "Starscream")
             ]),
     ]
 )
