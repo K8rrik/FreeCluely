@@ -91,6 +91,20 @@ class HotKeyManager {
             print("Error registering instructions hotkey: \(instructionsStatus)")
         }
         
+        // Register Cmd+Shift+M (Model Switch)
+        var modelHotKeyID = EventHotKeyID()
+        modelHotKeyID.signature = OSType("swat".asUInt32)
+        modelHotKeyID.id = 11
+        
+        let modelKeyCode: UInt32 = 46 // 'M' key
+        var modelHotKeyRef: EventHotKeyRef?
+        
+        let modelStatus = RegisterEventHotKey(modelKeyCode, modifierFlags, modelHotKeyID, GetApplicationEventTarget(), 0, &modelHotKeyRef)
+        
+        if modelStatus != noErr {
+            print("Error registering model hotkey: \(modelStatus)")
+        }
+        
         
         // Register Cmd + Arrow keys for window movement
         let arrowModifierFlags: UInt32 = UInt32(cmdKey)
@@ -166,6 +180,8 @@ class HotKeyManager {
                             HotKeyManager.shared.handleHistoryHotKey()
                         } else if hotKeyID.id == 10 {
                             HotKeyManager.shared.handleInstructionsHotKey()
+                        } else if hotKeyID.id == 11 {
+                            HotKeyManager.shared.handleModelSwitchHotKey()
                         }
                     }
                 } else if kind == UInt32(kEventHotKeyReleased) {
@@ -268,6 +284,15 @@ class HotKeyManager {
         
         DispatchQueue.main.async {
             appState.toggleCustomInstructionsWindow()
+        }
+    }
+    
+    func handleModelSwitchHotKey() {
+        print("Model Switch Hotkey pressed!")
+        guard let appState = appState else { return }
+        
+        DispatchQueue.main.async {
+            appState.cycleModel()
         }
     }
     

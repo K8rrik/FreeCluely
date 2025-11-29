@@ -107,6 +107,19 @@ class OverlayWindow: NSWindow {
             return event
         }
         
+        // Add GLOBAL monitor for Option key
+        NSEvent.addGlobalMonitorForEvents(matching: .flagsChanged) { [weak appState] event in
+            if event.modifierFlags.contains(.option) {
+                DispatchQueue.main.async {
+                    appState?.isOptionPressed = true
+                }
+            } else {
+                DispatchQueue.main.async {
+                    appState?.isOptionPressed = false
+                }
+            }
+        }
+        
         // Add GLOBAL keyboard shortcut for focusing input field: Cmd+/
         // This works even when the app is not focused
         NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak appState] event in
@@ -126,6 +139,9 @@ class OverlayWindow: NSWindow {
                 appState?.shouldFocusInput = true
                 return nil // Consume the event
             }
+            
+            // Cmd+Shift+M is now handled by HotKeyManager globally
+            
             return event
         }
     }

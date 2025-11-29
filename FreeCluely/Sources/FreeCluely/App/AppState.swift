@@ -13,7 +13,7 @@ class AppState: ObservableObject {
     @Published var shouldFocusInput: Bool = false
     
     // Smart Assistant
-    @Published var fastModel: String = "gemini-1.5-flash-001" // Updated default to specific version
+    @Published var fastModel: GeminiModel = .gemini25Flash // Updated default to 2.5 Flash
     private var contextBuffer: String = ""
     private var contextHistory: [String] = [] // История последних фраз для скользящего окна
     private var lastAnalysisTime: Date = Date()
@@ -77,12 +77,28 @@ class AppState: ObservableObject {
         self.history = HistoryManager.shared.loadHistory()
         
         // Load Fast Model
-        if let fastModelEnv = env["GEMINI_FAST_MODEL"], !fastModelEnv.isEmpty {
-            self.fastModel = fastModelEnv
+        if let fastModelEnv = env["GEMINI_FAST_MODEL"], let loadedFastModel = GeminiModel(rawValue: fastModelEnv) {
+            self.fastModel = loadedFastModel
             print("AppState: Loaded Fast Model from .env: \(fastModelEnv)")
         } else {
-            print("AppState: Using default fast model: \(self.fastModel)")
+            print("AppState: Using default fast model: \(self.fastModel.rawValue)")
         }
+    }
+    
+    func cycleModel() {
+        let models: [GeminiModel] = [.gemini3ProPreview, .gemini25Pro, .gemini25Flash]
+        if let currentIndex = models.firstIndex(of: self.model) {
+            let nextIndex = (currentIndex + 1) % models.count
+            self.model = models[nextIndex]
+        } else {
+            self.model = .gemini3ProPreview
+        }
+        print("AppState: Switched model to \(self.model.rawValue)")
+    }
+    
+    func setModel(_ model: GeminiModel) {
+        self.model = model
+        print("AppState: Set model to \(self.model.rawValue)")
     }
     
     func startNewSession() {
@@ -181,14 +197,7 @@ class AppState: ObservableObject {
                     image: nil, // Image is now in history
                     apiKey: apiKey,
                     model: model,
-                    generationConfig: GenerationConfig(
-                        temperature: nil,
-                        topP: nil,
-                        topK: nil,
-                        maxOutputTokens: 65536,
-                        candidateCount: 1,
-                        thinkingConfig: ThinkingConfig(includeThoughts: true, thinkingLevel: "high")
-                    ),
+                    generationConfig: self.model.generationConfig,
                     safetySettings: [
                         SafetySetting(category: .harassment, threshold: .blockNone),
                         SafetySetting(category: .hateSpeech, threshold: .blockNone),
@@ -456,7 +465,8 @@ class AppState: ObservableObject {
                 let stream = GeminiClient.shared.streamRequest(
                     history: analysisMessages,
                     apiKey: apiKey,
-                    modelName: fastModel
+                    model: fastModel,
+                    generationConfig: fastModel.generationConfig
                 )
                 
                 var fullResponse = ""

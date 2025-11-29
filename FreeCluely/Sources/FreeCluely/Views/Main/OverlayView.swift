@@ -67,6 +67,40 @@ struct OverlayView: View {
             
             // Right side: Action Buttons
             HStack(spacing: 8) {
+                // Model Selector
+                VStack(spacing: 2) {
+                    Text("⌘⇧M")
+                        .font(.system(size: 10))
+                        .foregroundColor(.white.opacity(0.6))
+                    Menu {
+                        Button("Gemini 3.0 Pro Preview") {
+                            appState.setModel(.gemini3ProPreview)
+                        }
+                        Button("Gemini 2.5 Pro") {
+                            appState.setModel(.gemini25Pro)
+                        }
+                        Button("Gemini 2.5 Flash") {
+                            appState.setModel(.gemini25Flash)
+                        }
+                        Divider()
+                        Button("Cycle Models (⌘⇧M)") {
+                            appState.cycleModel()
+                        }
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "cpu")
+                            Text(appState.model.shortName)
+                                .font(.system(size: 10, weight: .medium))
+                        }
+                        .foregroundColor(appState.model == .gemini3ProPreview ? .purple : .white)
+                        .padding(AppConstants.UI.buttonPadding)
+                        .frame(height: AppConstants.UI.buttonSize + (AppConstants.UI.buttonPadding * 2)) // Maintain height consistency
+                        .background(Color.white.opacity(0.1))
+                        .cornerRadius(8)
+                    }
+                    .menuStyle(BorderlessButtonMenuStyle())
+                }
+
                 // Clear Button
                 VStack(spacing: 2) {
                     Text("⌘⇧C")

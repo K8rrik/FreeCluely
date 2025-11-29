@@ -57,14 +57,7 @@ class ScreenCapture {
                     image: nil, // Image is now in history
                     apiKey: apiKey,
                     model: model,
-                    generationConfig: GenerationConfig(
-                        temperature: nil,
-                        topP: nil,
-                        topK: nil,
-                        maxOutputTokens: 65536,
-                        candidateCount: 1,
-                        thinkingConfig: ThinkingConfig(includeThoughts: true, thinkingLevel: "high")
-                    ),
+                    generationConfig: model.generationConfig,
                     safetySettings: [
                         SafetySetting(category: .harassment, threshold: .blockNone),
                         SafetySetting(category: .hateSpeech, threshold: .blockNone),

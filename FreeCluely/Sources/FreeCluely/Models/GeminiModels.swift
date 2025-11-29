@@ -2,11 +2,57 @@ import Foundation
 
 enum GeminiModel: String, CaseIterable {
     case gemini3ProPreview = "gemini-3-pro-preview"
-    case gemini15Pro = "gemini-1.5-pro"
-    case gemini15Flash = "gemini-1.5-flash"
-    case geminiPro = "gemini-pro"
+    case gemini25Pro = "gemini-2.5-pro"
+    case gemini25Flash = "gemini-2.5-flash"
     
     var id: String { self.rawValue }
+    
+    var generationConfig: GenerationConfig {
+        switch self {
+        case .gemini3ProPreview:
+            return GenerationConfig(
+                maxOutputTokens: 65536,
+                candidateCount: 1,
+                thinkingConfig: ThinkingConfig(includeThoughts: true, thinkingLevel: "high")
+            )
+        case .gemini25Pro:
+            return GenerationConfig(
+                temperature: 0.7,
+                topP: 0.95,
+                topK: 40,
+                maxOutputTokens: 8192,
+                candidateCount: 1,
+                thinkingConfig: nil
+            )
+        case .gemini25Flash:
+            return GenerationConfig(
+                temperature: 0.9,
+                topP: 0.95,
+                topK: 40,
+                maxOutputTokens: 8192,
+                candidateCount: 1,
+                thinkingConfig: nil
+            )
+        default:
+            return GenerationConfig(
+                maxOutputTokens: 8192,
+                candidateCount: 1,
+                thinkingConfig: nil
+            )
+        }
+    }
+    var shortName: String {
+        switch self {
+        case .gemini3ProPreview:
+            return "3.0 Pro"
+        case .gemini25Pro:
+            return "2.5 Pro"
+        case .gemini25Flash:
+            return "2.5 Flash"
+        default:
+            return "Gemini"
+        }
+    }
 }
 
 struct GenerationConfig: Encodable {
