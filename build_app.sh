@@ -57,9 +57,21 @@ cat <<EOF > "$APP_BUNDLE/Contents/Info.plist"
 </plist>
 EOF
 
-# Code Signing (Ad-hoc) to help persist permissions
-echo "Signing app..."
-codesign --force --deep --sign - "$APP_BUNDLE"
+# Code Signing with Entitlements to persist permissions
+echo "Signing app with entitlements..."
+# Use entitlements file if it exists
+ENTITLEMENTS="$SOURCE_DIR/FreeCluely.entitlements"
+if [ -f "$ENTITLEMENTS" ]; then
+    echo "Using entitlements file: $ENTITLEMENTS"
+    codesign --force --deep --sign - --entitlements "$ENTITLEMENTS" --options runtime "$APP_BUNDLE"
+else
+    echo "WARNING: No entitlements file found. Permissions may not persist."
+    codesign --force --deep --sign - "$APP_BUNDLE"
+fi
+
+# Set stable bundle seed to help macOS remember permissions
+# This UUID should remain constant across builds
+xattr -w com.apple.bundle-seed "com.kerrik.FreeCluely" "$APP_BUNDLE" 2>/dev/null || true
 
 # Handle .env
 if [ -f "$SOURCE_DIR/.env" ]; then
