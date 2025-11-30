@@ -25,7 +25,7 @@ class OverlayWindow: NSWindow {
         self.isOpaque = false
         self.backgroundColor = .clear
         self.level = .statusBar // Allow window to be above menu bar
-        self.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
+        self.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
         self.isMovableByWindowBackground = false // Disable system dragging to prevent snapping
         self.hidesOnDeactivate = false
         
@@ -44,11 +44,16 @@ class OverlayWindow: NSWindow {
         
         appState.$isVisible
             .sink { [weak self] isVisible in
+                guard let self = self else { return }
                 if isVisible {
+                    // Ensure window stays on top and on all spaces
+                    self.level = .statusBar
+                    self.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
+                    
                     // Show window without activating the app
-                    self?.orderFrontRegardless()
+                    self.orderFrontRegardless()
                 } else {
-                    self?.orderOut(nil)
+                    self.orderOut(nil)
                 }
             }
             .store(in: &cancellables)
@@ -87,9 +92,14 @@ class OverlayWindow: NSWindow {
         // When shouldFocusInput is triggered, activate app and make window key
         appState.$shouldFocusInput
             .sink { [weak self] shouldFocus in
+                guard let self = self else { return }
                 if shouldFocus {
+                    // Ensure window stays on top and on all spaces
+                    self.level = .statusBar
+                    self.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
+                    
                     NSApp.activate(ignoringOtherApps: true)
-                    self?.makeKeyAndOrderFront(nil)
+                    self.makeKeyAndOrderFront(nil)
                 }
             }
             .store(in: &cancellables)

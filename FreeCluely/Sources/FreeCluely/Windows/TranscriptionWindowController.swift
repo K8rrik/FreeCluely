@@ -19,7 +19,7 @@ class TranscriptionWindowController: NSWindowController {
         window.isOpaque = false
         window.backgroundColor = .clear
         window.level = .statusBar // Match OverlayWindow level
-        window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
+        window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
         window.isMovableByWindowBackground = true // Allow moving by background
         window.hidesOnDeactivate = false
         window.sharingType = .none // Exclude from screenshots

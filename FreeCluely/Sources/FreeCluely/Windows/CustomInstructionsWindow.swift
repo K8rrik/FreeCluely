@@ -34,7 +34,7 @@ class CustomInstructionsWindow: NSWindow {
         self.isOpaque = false
         self.backgroundColor = .clear
         self.level = .statusBar
-        self.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        self.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .ignoresCycle]
         self.isMovableByWindowBackground = false
         self.hidesOnDeactivate = false
         self.isReleasedWhenClosed = false
