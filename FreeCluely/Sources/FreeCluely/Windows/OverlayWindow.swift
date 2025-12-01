@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 import Combine
 
-class OverlayWindow: NSWindow {
+class OverlayWindow: NSPanel {
     private var cancellables = Set<AnyCancellable>()
     private var dragStartMouseLocation: NSPoint?
     private var dragStartWindowOrigin: NSPoint?
@@ -17,17 +17,19 @@ class OverlayWindow: NSWindow {
         
         super.init(
             contentRect: NSRect(x: x, y: y, width: width, height: height),
-            styleMask: [.borderless, .fullSizeContentView], // Borderless for custom look
+            styleMask: [.borderless, .fullSizeContentView, .nonactivatingPanel], // Borderless for custom look
             backing: .buffered,
             defer: false
         )
         
+        self.isFloatingPanel = true
         self.isOpaque = false
         self.backgroundColor = .clear
         self.level = .statusBar // Allow window to be above menu bar
         self.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
         self.isMovableByWindowBackground = false // Disable system dragging to prevent snapping
         self.hidesOnDeactivate = false
+        self.becomesKeyOnlyIfNeeded = true
         
         // Don't steal focus from other apps
         self.canHide = false
